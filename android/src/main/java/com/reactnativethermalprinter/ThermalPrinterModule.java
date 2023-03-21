@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
 import com.dantsu.escposprinter.EscPosPrinter;
+import com.dantsu.escposprinter.EscPosPrinterCommands;
 import com.dantsu.escposprinter.connection.DeviceConnection;
 import com.dantsu.escposprinter.connection.bluetooth.BluetoothPrintersConnections;
 import com.dantsu.escposprinter.connection.tcp.TcpConnection;
@@ -29,7 +30,9 @@ import java.util.regex.Pattern;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.graphics.BitmapFactory;
 import android.text.TextUtils;
+import android.util.Base64;
 
 import com.dantsu.escposprinter.connection.bluetooth.BluetoothConnection;
 
@@ -63,7 +66,7 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public void printTcp(String ipAddress, double port, String payload, boolean autoCut, boolean openCashbox, double mmFeedPaper, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, double timeout, Promise promise) {
+  public void printTcp(String ipAddress, double port, String payload, boolean autoCut, boolean openCashbox, double mmFeedPaper, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, double timeout, boolean payloadIsBase64EncodedImage, Promise promise) {
 //
 //        05-05-2021
 //        https://reactnative.dev/docs/native-modules-android
@@ -77,14 +80,18 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
     this.jsPromise = promise;
     try {
       TcpConnection connection = new TcpConnection(ipAddress, (int) port, (int) timeout);
-      this.printIt(connection, payload, autoCut, openCashbox, mmFeedPaper, printerDpi, printerWidthMM, printerNbrCharactersPerLine);
+      if (payloadIsBase64EncodedImage) {
+        this.printBase64EncodedImage(connection, payload, printerDpi, printerWidthMM, printerNbrCharactersPerLine, mmFeedPaper, autoCut, openCashbox);
+      } else {
+        this.printIt(connection, payload, autoCut, openCashbox, mmFeedPaper, printerDpi, printerWidthMM, printerNbrCharactersPerLine);
+      }
     } catch (Exception e) {
       this.jsPromise.reject("Connection Error", e.getMessage());
     }
   }
 
   @ReactMethod
-  public void printBluetooth(String macAddress, String payload, boolean autoCut, boolean openCashbox, double mmFeedPaper, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, Promise promise) {
+  public void printBluetooth(String macAddress, String payload, boolean autoCut, boolean openCashbox, double mmFeedPaper, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, boolean payloadIsBase64EncodedImage, Promise promise) {
     this.jsPromise = promise;
     BluetoothConnection btPrinter;
 
@@ -102,7 +109,11 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
       ActivityCompat.requestPermissions(getCurrentActivity(), new String[]{Manifest.permission.BLUETOOTH}, 1);
     } else {
       try {
-        this.printIt(btPrinter.connect(), payload, autoCut, openCashbox, mmFeedPaper, printerDpi, printerWidthMM, printerNbrCharactersPerLine);
+        if (payloadIsBase64EncodedImage) {
+          this.printBase64EncodedImage(btPrinter.connect(), payload, printerDpi, printerWidthMM, printerNbrCharactersPerLine, mmFeedPaper, autoCut, openCashbox);
+        } else {
+          this.printIt(btPrinter.connect(), payload, autoCut, openCashbox, mmFeedPaper, printerDpi, printerWidthMM, printerNbrCharactersPerLine);
+        }
       } catch (Exception e) {
         this.jsPromise.reject("Connection Error", e.getMessage());
       }
@@ -202,6 +213,67 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
       this.jsPromise.reject("ERROR", e.getMessage());
     }
   }
+
+  private void printBase64EncodedImage(DeviceConnection printerConnection, String base64EncodedImage, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, double mmFeedPaper, boolean cutPaper, boolean openCashBox) {
+    try {
+      EscPosPrinter printer = new EscPosPrinter(printerConnection, (int) printerDpi, (float) printerWidthMM, (int) printerNbrCharactersPerLine);
+
+      final String base64EncodedImageWithoutPrefix = base64EncodedImage.substring(base64EncodedImage.indexOf(",")  + 1);
+      final byte[] decodedBytes = Base64.decode(base64EncodedImageWithoutPrefix, Base64.DEFAULT);
+
+      Bitmap originalBitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
+
+      final int targetWidth = (int) Math.round(printerWidthMM / 25.4f *  printerDpi);
+
+      Bitmap bitmapToPrint = null;
+
+      if (originalBitmap.getWidth() == targetWidth) {
+        bitmapToPrint = originalBitmap;
+      } else {
+        final int targetHeight = Math.round(((float) originalBitmap.getHeight()) * ((float) targetWidth) / ((float) originalBitmap.getWidth()));
+        bitmapToPrint = Bitmap.createScaledBitmap(originalBitmap, targetWidth, targetHeight, false);
+      }
+
+      EscPosPrinterCommands printerCommands = new EscPosPrinterCommands(printerConnection);
+
+      printerCommands.connect();
+
+      printerCommands.reset();
+      printerCommands.useEscAsteriskCommand(true);
+
+      int width = bitmapToPrint.getWidth();
+      int height = bitmapToPrint.getHeight();
+
+      for (int y = 0; y < height; y += 256) {
+        Bitmap bitmap = Bitmap.createBitmap(bitmapToPrint, 0, y, width, (y + 256 >= height) ? height - y : 256);
+
+        printerCommands.printImage(EscPosPrinterCommands.bitmapToBytes(bitmap, false));
+      }
+
+      if (mmFeedPaper > 0) {
+        final int dotsFeedPaper = (int) Math.round(mmFeedPaper / 25.4f * printerDpi);
+        printerCommands.feedPaper(dotsFeedPaper);
+      }
+
+      if (cutPaper) {
+        printerCommands.cutPaper();
+      }
+
+      if (openCashBox) {
+        printerCommands.openCashBox();
+      }
+
+      printer.disconnectPrinter();
+
+      this.jsPromise.resolve(true);
+
+    } catch (EscPosConnectionException e) {
+      this.jsPromise.reject("Broken connection", e.getMessage());
+    } catch (Exception e) {
+      this.jsPromise.reject("ERROR", e.getMessage());
+    }
+  }
+
 
   private BluetoothConnection getBluetoothConnectionWithMacAddress(String macAddress) {
     for (BluetoothConnection device : btDevicesList) {
