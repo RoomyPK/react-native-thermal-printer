@@ -17,7 +17,10 @@ type NativeModuleType = typeof NativeModules & {
       printerDpi: number,
       printerWidthMM: number,
       printerNbrCharactersPerLine: number,
-      timeout: number
+      timeout: number,
+      payloadIsBase64EncodedImage: boolean,
+      usePrinterCommands: boolean,
+      useEscAsteriskCommand: boolean
     ): Promise<void>;
     printBluetooth(
       macAddress: string,
@@ -27,7 +30,10 @@ type NativeModuleType = typeof NativeModules & {
       mmFeedPaper: number,
       printerDpi: number,
       printerWidthMM: number,
-      printerNbrCharactersPerLine: number
+      printerNbrCharactersPerLine: number,
+      payloadIsBase64EncodedImage: boolean,
+      usePrinterCommands: boolean,
+      useEscAsteriskCommand: boolean
     ): Promise<void>;
     getBluetoothDeviceList(): Promise<BluetoothPrinter[]>;
   };
@@ -44,6 +50,9 @@ interface PrinterInterface {
   printerDpi: number;
   printerWidthMM: number;
   printerNbrCharactersPerLine: number;
+  payloadIsBase64EncodedImage: boolean;
+  usePrinterCommands: boolean;
+  useEscAsteriskCommand: boolean;
 }
 
 interface PrintTcpInterface extends PrinterInterface {
@@ -68,6 +77,9 @@ let defaultConfig: PrintTcpInterface & PrintBluetoothInterface = {
   printerWidthMM: 80,
   printerNbrCharactersPerLine: 42,
   timeout: 30000,
+  payloadIsBase64EncodedImage: false,
+  usePrinterCommands: false,
+  useEscAsteriskCommand: false
 };
 
 const getConfig = (
@@ -90,6 +102,9 @@ const printTcp = async (
     printerWidthMM,
     printerNbrCharactersPerLine,
     timeout,
+    payloadIsBase64EncodedImage,
+    usePrinterCommands,
+    useEscAsteriskCommand
   } = getConfig(args);
 
   await ThermalPrinterModule.printTcp(
@@ -102,7 +117,10 @@ const printTcp = async (
     printerDpi,
     printerWidthMM,
     printerNbrCharactersPerLine,
-    timeout
+    timeout,
+    payloadIsBase64EncodedImage,
+    usePrinterCommands,
+    useEscAsteriskCommand
   );
 };
 
@@ -118,6 +136,9 @@ const printBluetooth = (
     printerDpi,
     printerWidthMM,
     printerNbrCharactersPerLine,
+    payloadIsBase64EncodedImage,
+    usePrinterCommands,
+    useEscAsteriskCommand
   } = getConfig(args);
 
   return ThermalPrinterModule.printBluetooth(
@@ -128,7 +149,10 @@ const printBluetooth = (
     mmFeedPaper,
     printerDpi,
     printerWidthMM,
-    printerNbrCharactersPerLine
+    printerNbrCharactersPerLine,
+    payloadIsBase64EncodedImage,
+    usePrinterCommands,
+    useEscAsteriskCommand
   );
 };
 

@@ -66,7 +66,7 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public void printTcp(String ipAddress, double port, String payload, boolean autoCut, boolean openCashbox, double mmFeedPaper, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, double timeout, boolean payloadIsBase64EncodedImage, Promise promise) {
+  public void printTcp(String ipAddress, double port, String payload, boolean autoCut, boolean openCashbox, double mmFeedPaper, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, double timeout, boolean payloadIsBase64EncodedImage, boolean usePrinterCommands, boolean useEscAsteriskCommand, Promise promise) {
 //
 //        05-05-2021
 //        https://reactnative.dev/docs/native-modules-android
@@ -81,7 +81,7 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
     try {
       TcpConnection connection = new TcpConnection(ipAddress, (int) port, (int) timeout);
       if (payloadIsBase64EncodedImage) {
-        this.printBase64EncodedImage(connection, payload, printerDpi, printerWidthMM, printerNbrCharactersPerLine, mmFeedPaper, autoCut, openCashbox);
+        this.printBase64EncodedImage(connection, payload, printerDpi, printerWidthMM, printerNbrCharactersPerLine, mmFeedPaper, autoCut, openCashbox, usePrinterCommands, useEscAsteriskCommand);
       } else {
         this.printIt(connection, payload, autoCut, openCashbox, mmFeedPaper, printerDpi, printerWidthMM, printerNbrCharactersPerLine);
       }
@@ -91,7 +91,7 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public void printBluetooth(String macAddress, String payload, boolean autoCut, boolean openCashbox, double mmFeedPaper, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, boolean payloadIsBase64EncodedImage, Promise promise) {
+  public void printBluetooth(String macAddress, String payload, boolean autoCut, boolean openCashbox, double mmFeedPaper, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, boolean payloadIsBase64EncodedImage, boolean usePrinterCommands, boolean useEscAsteriskCommand, Promise promise) {
     this.jsPromise = promise;
     BluetoothConnection btPrinter;
 
@@ -110,7 +110,7 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
     } else {
       try {
         if (payloadIsBase64EncodedImage) {
-          this.printBase64EncodedImage(btPrinter.connect(), payload, printerDpi, printerWidthMM, printerNbrCharactersPerLine, mmFeedPaper, autoCut, openCashbox);
+          this.printBase64EncodedImage(btPrinter.connect(), payload, printerDpi, printerWidthMM, printerNbrCharactersPerLine, mmFeedPaper, autoCut, openCashbox, usePrinterCommands, useEscAsteriskCommand);
         } else {
           this.printIt(btPrinter.connect(), payload, autoCut, openCashbox, mmFeedPaper, printerDpi, printerWidthMM, printerNbrCharactersPerLine);
         }
@@ -214,10 +214,8 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
     }
   }
 
-  private void printBase64EncodedImage(DeviceConnection printerConnection, String base64EncodedImage, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, double mmFeedPaper, boolean cutPaper, boolean openCashBox) {
+  private void printBase64EncodedImage(DeviceConnection printerConnection, String base64EncodedImage, double printerDpi, double printerWidthMM, double printerNbrCharactersPerLine, double mmFeedPaper, boolean cutPaper, boolean openCashBox, boolean usePrinterCommands, boolean useEscAsteriskCommand) {
     try {
-      EscPosPrinter printer = new EscPosPrinter(printerConnection, (int) printerDpi, (float) printerWidthMM, (int) printerNbrCharactersPerLine);
-
       final String base64EncodedImageWithoutPrefix = base64EncodedImage.substring(base64EncodedImage.indexOf(",")  + 1);
       final byte[] decodedBytes = Base64.decode(base64EncodedImageWithoutPrefix, Base64.DEFAULT);
 
@@ -228,42 +226,95 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
       Bitmap bitmapToPrint = null;
 
       if (originalBitmap.getWidth() == targetWidth) {
+
         bitmapToPrint = originalBitmap;
+
       } else {
+
         final int targetHeight = Math.round(((float) originalBitmap.getHeight()) * ((float) targetWidth) / ((float) originalBitmap.getWidth()));
+
         bitmapToPrint = Bitmap.createScaledBitmap(originalBitmap, targetWidth, targetHeight, false);
       }
 
-      EscPosPrinterCommands printerCommands = new EscPosPrinterCommands(printerConnection);
+      EscPosPrinterCommands printerCommands = null;
+      EscPosPrinter printer = null;
 
-      printerCommands.connect();
+      if (usePrinterCommands) {
 
-      printerCommands.reset();
-      printerCommands.useEscAsteriskCommand(true);
+        printerCommands = new EscPosPrinterCommands(printerConnection);
+
+        printerCommands.connect();
+        printerCommands.reset();
+
+        if (useEscAsteriskCommand) {
+
+          printerCommands.useEscAsteriskCommand(true);
+        }
+
+      } else {
+
+        printer = new EscPosPrinter(printerConnection, (int) printerDpi, (float) printerWidthMM, (int) printerNbrCharactersPerLine);
+
+        if (useEscAsteriskCommand) {
+
+          printer.useEscAsteriskCommand(true);
+        }
+      }
 
       int width = bitmapToPrint.getWidth();
       int height = bitmapToPrint.getHeight();
 
+      StringBuilder textToPrint = new StringBuilder();
+
       for (int y = 0; y < height; y += 256) {
         Bitmap bitmap = Bitmap.createBitmap(bitmapToPrint, 0, y, width, (y + 256 >= height) ? height - y : 256);
 
-        printerCommands.printImage(EscPosPrinterCommands.bitmapToBytes(bitmap, false));
+        if (usePrinterCommands) {
+
+          printerCommands.printImage(EscPosPrinterCommands.bitmapToBytes(bitmap, false));
+
+        } else {
+
+          textToPrint.append("[L]<img>" + PrinterTextParserImg.bitmapToHexadecimalString(printer, bitmap, false) + "</img>\n");
+        }
       }
 
-      if (mmFeedPaper > 0) {
-        final int dotsFeedPaper = (int) Math.round(mmFeedPaper / 25.4f * printerDpi);
-        printerCommands.feedPaper(dotsFeedPaper);
+      if (usePrinterCommands) {
+
+        if (mmFeedPaper > 0) {
+
+          final int dotsFeedPaper = (int) Math.round(mmFeedPaper / 25.4f * printerDpi);
+
+          printerCommands.feedPaper(dotsFeedPaper);
+        }
+
+        if (cutPaper) {
+          printerCommands.cutPaper();
+        }
+
+        if (openCashBox) {
+          printerCommands.openCashBox();
+        }
+      } else {
+
+        textToPrint.append("[C] \n");
+        textToPrint.append("[C] \n");
+        textToPrint.append("[C] \n");
+
+        if (openCashBox) {
+          printer.printFormattedTextAndOpenCashBox(textToPrint.toString(), (float) mmFeedPaper);  // This cuts as well.
+        } else if (cutPaper) {
+          printer.printFormattedTextAndCut(textToPrint.toString(), (float) mmFeedPaper);
+        } else {
+          printer.printFormattedText(textToPrint.toString(), (float) mmFeedPaper);
+        }
       }
 
-      if (cutPaper) {
-        printerCommands.cutPaper();
+      if (usePrinterCommands) {
+        printerCommands.disconnect();
+      } else {
+        printer.disconnectPrinter();
       }
-
-      if (openCashBox) {
-        printerCommands.openCashBox();
-      }
-
-      printer.disconnectPrinter();
 
       this.jsPromise.resolve(true);
 
