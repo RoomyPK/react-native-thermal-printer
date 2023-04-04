@@ -300,6 +300,7 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
         textToPrint.append("[C] \n");
         textToPrint.append("[C] \n");
         textToPrint.append("[C] \n");
+        textToPrint.append("[C] \n");
 
         if (openCashBox) {
           printer.printFormattedTextAndOpenCashBox(textToPrint.toString(), (float) mmFeedPaper);  // This cuts as well.
@@ -358,3 +359,4 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
     return map;
   }
 }
+
