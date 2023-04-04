@@ -34,6 +34,9 @@ describe('React Native Thermal Printer Module', () => {
       printerWidthMM: 55,
       printerNbrCharactersPerLine: 66,
       timeout: 30000,
+      payloadIsBase64EncodedImage: false,
+      usePrinterCommands: false,
+      useEscAsteriskCommand: false,
     };
 
     Object.keys(ReactNativeThermalPrinter.defaultConfig).forEach(
@@ -76,7 +79,10 @@ describe('React Native Thermal Printer Module', () => {
         defaultConfig.printerDpi,
         defaultConfig.printerWidthMM,
         defaultConfig.printerNbrCharactersPerLine,
-        defaultConfig.timeout
+        defaultConfig.timeout,
+        defaultConfig.payloadIsBase64EncodedImage,
+        defaultConfig.usePrinterCommands,
+        defaultConfig.useEscAsteriskCommand
       );
     });
 
@@ -91,6 +97,9 @@ describe('React Native Thermal Printer Module', () => {
       const printerWidthMM: number = 20;
       const printerNbrCharactersPerLine: number = 62;
       const timeout: number = 30000;
+      const payloadIsBase64EncodedImage: boolean = false;
+      const usePrinterCommands: boolean = false;
+      const useEscAsteriskCommand: boolean = false;
 
       await ReactNativeThermalPrinter.printTcp({
         ip,
@@ -103,6 +112,9 @@ describe('React Native Thermal Printer Module', () => {
         printerWidthMM,
         printerNbrCharactersPerLine,
         timeout,
+        payloadIsBase64EncodedImage,
+        usePrinterCommands,
+        useEscAsteriskCommand,
       });
 
       expect(NativeModules.ThermalPrinterModule.printTcp).toBeCalledWith(
@@ -115,7 +127,10 @@ describe('React Native Thermal Printer Module', () => {
         printerDpi,
         printerWidthMM,
         printerNbrCharactersPerLine,
-        timeout
+        timeout,
+        payloadIsBase64EncodedImage,
+        usePrinterCommands,
+        useEscAsteriskCommand
       );
     });
   });
@@ -144,7 +159,10 @@ describe('React Native Thermal Printer Module', () => {
         defaultConfig.mmFeedPaper,
         defaultConfig.printerDpi,
         defaultConfig.printerWidthMM,
-        defaultConfig.printerNbrCharactersPerLine
+        defaultConfig.printerNbrCharactersPerLine,
+        defaultConfig.payloadIsBase64EncodedImage,
+        defaultConfig.usePrinterCommands,
+        defaultConfig.useEscAsteriskCommand
       );
     });
     it('should pass args to the native module', async () => {
@@ -156,6 +174,9 @@ describe('React Native Thermal Printer Module', () => {
       const printerDpi: number = 303;
       const printerWidthMM: number = 20;
       const printerNbrCharactersPerLine: number = 62;
+      const payloadIsBase64EncodedImage: boolean = false;
+      const usePrinterCommands: boolean = false;
+      const useEscAsteriskCommand: boolean = false;
 
       await ReactNativeThermalPrinter.printBluetooth({
         macAddress,
@@ -166,6 +187,9 @@ describe('React Native Thermal Printer Module', () => {
         printerDpi,
         printerWidthMM,
         printerNbrCharactersPerLine,
+        payloadIsBase64EncodedImage: false,
+        usePrinterCommands: false,
+        useEscAsteriskCommand: false,
       });
 
       expect(NativeModules.ThermalPrinterModule.printBluetooth).toBeCalledWith(
@@ -176,7 +200,10 @@ describe('React Native Thermal Printer Module', () => {
         mmFeedPaper,
         printerDpi,
         printerWidthMM,
-        printerNbrCharactersPerLine
+        printerNbrCharactersPerLine,
+        payloadIsBase64EncodedImage,
+        usePrinterCommands,
+        useEscAsteriskCommand
       );
     });
   });
