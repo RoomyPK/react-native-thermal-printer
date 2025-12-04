@@ -48,8 +48,6 @@ public abstract class FastDeviceConnection {
 
   protected abstract void writeToDevice(byte[] buffer, int offset, int length) throws IOException;
 
-  public abstract void flush();
-
   protected abstract void closeDevice() throws IOException;
 
   // PUBLIC WRITE API
