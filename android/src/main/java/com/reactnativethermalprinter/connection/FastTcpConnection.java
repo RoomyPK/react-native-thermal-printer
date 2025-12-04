@@ -86,7 +86,7 @@ public class FastTcpConnection extends FastDeviceConnection {
       if (PRE_WRITE_DELAY_MS > 0) {
         try {
           Thread.sleep(PRE_WRITE_DELAY_MS);
-        } catch (Exception ignore) {
+        } catch (InterruptedException ignored) {
         }
       }
 
@@ -96,7 +96,7 @@ public class FastTcpConnection extends FastDeviceConnection {
       if (POST_WRITE_DELAY_MS > 0) {
         try {
           Thread.sleep(POST_WRITE_DELAY_MS);
-        } catch (Exception ignore) {
+        } catch (InterruptedException ignored) {
         }
       }
 
