@@ -8,6 +8,7 @@ import android.util.Log;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.UUID;
 
 public class FastBluetoothConnection extends FastDeviceConnection {
@@ -141,40 +142,93 @@ public class FastBluetoothConnection extends FastDeviceConnection {
   }
 
   private void safeCloseSocket() {
-    // SPP transmits asynchronously, closing the socket too early leaves the last
-    // bytes unsent. Final drain guarantees last chunk hits printer before shutdown.
-    if (POST_FINISH_DRAIN_MS > 0) {
+
+    final long start = System.nanoTime();
+
+    Log.i(TAG, "Closing Bluetooth connection");
+
+    try {
+      // SPP transmits asynchronously, closing the socket too early leaves the last
+      // bytes unsent.
+
+      // Note: this.conn.flush() only flushes the Java's OutputStream buffer, not the
+      // RFComm buffer.
+
+      // --------------------------------------------------------
+      // STEP 1 — Write ASCII space padding to force
+      // Android -> BT chipset -> printer flush.
+      // --------------------------------------------------------
+      // Using ASCII 0x20 ensures:
+      // - Printer firmware must process it -> forces flush
+      // - Does NOT print anything after cut/reset
+      // - Works on ALL cheap clone printers
+
+      byte[] padding = new byte[2048];
+      Arrays.fill(padding, (byte) 0x20);
+
       try {
-        Thread.sleep(POST_FINISH_DRAIN_MS);
+        if (this.out != null) {
+          this.out.write(padding);
+          this.out.flush(); // First flush: ensure padding exits Java buffers
+        }
+      } catch (Exception ignored) {
+        // Even if padding write fails, continue closing gracefully
+      }
+
+      // --------------------------------------------------------
+      // STEP 2 — Allow RFCOMM + printer UART to drain fully.
+      // --------------------------------------------------------
+      if (POST_FINISH_DRAIN_MS > 0) {
+        try {
+          Thread.sleep(POST_FINISH_DRAIN_MS);
+        } catch (InterruptedException ignored) {
+        }
+      }
+
+      // --------------------------------------------------------
+      // STEP 3 — Final flush to ensure NO padding remains
+      // inside BufferedOutputStream.
+      // --------------------------------------------------------
+      try {
+        if (this.out != null) {
+          this.out.flush();
+        }
+      } catch (Exception ignored) {
+      }
+
+      // --------------------------------------------------------
+      // STEP 4 — Short delay after final flush.
+      // --------------------------------------------------------
+      try {
+        Thread.sleep(40);
       } catch (InterruptedException ignored) {
       }
-    }
 
-    try {
-      if (this.out != null) {
-        this.out.flush();
+      // --------------------------------------------------------
+      // STEP 5 — Close OutputStream & Socket safely.
+      // --------------------------------------------------------
+      try {
+        if (this.out != null) {
+          this.out.close();
+        }
+      } catch (Exception ignored) {
       }
-    } catch (Exception ignored) {
-    }
 
-    try {
-      if (this.out != null) {
-        this.out.close();
+      try {
+        if (this.socket != null) {
+          this.socket.close();
+        }
+      } catch (Exception ignored) {
       }
-    } catch (Exception ignored) {
+
+    } finally {
+
+      this.out = null;
+      this.socket = null;
+
+      Log.i(TAG,
+          "Bluetooth connection closed; safeCloseSocket took " + ((System.nanoTime() - start) / 1_000_000) + " ms");
     }
-
-    try {
-      if (this.socket != null) {
-        this.socket.close();
-      }
-    } catch (Exception ignored) {
-    }
-
-    this.out = null;
-    this.socket = null;
-
-    Log.i(TAG, "Bluetooth connection closed");
   }
 
   // OPTIONAL MANUAL RECONNECT

@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.Arrays;
 
 public class FastTcpConnection extends FastDeviceConnection {
 
@@ -115,37 +116,90 @@ public class FastTcpConnection extends FastDeviceConnection {
 
   private void safeCloseSocket() {
 
-    // Give the module a moment to push last bytes to printer
-    try {
-      Thread.sleep(POST_FINISH_DRAIN_MS);
-    } catch (Exception ignore) {
-    }
+    final long start = System.nanoTime();
+
+    Log.i(TAG, "Closing TCP connection");
 
     try {
-      if (this.out != null) {
-        this.out.flush();
+      // SPP transmits asynchronously, closing the socket too early leaves the last
+      // bytes unsent. Note: this.conn.flush() only flushes the Java's OutputStream
+      // buffer, not the RFComm buffer.
+
+      // --------------------------------------------------------
+      // STEP 1 — Write ASCII space padding to force
+      // Android -> RF chipset -> printer flush.
+      // --------------------------------------------------------
+      // Using ASCII 0x20 ensures:
+      // - Printer firmware must process it -> forces flush
+      // - Does NOT print anything after cut/reset
+      // - Works on ALL cheap clone printers
+
+      byte[] padding = new byte[2048];
+      Arrays.fill(padding, (byte) 0x20);
+
+      try {
+        if (this.out != null) {
+          this.out.write(padding);
+          this.out.flush(); // First flush: ensure padding exits Java buffers
+        }
+      } catch (Exception ignored) {
+        // Even if padding write fails, continue closing gracefully
       }
-    } catch (Exception ignored) {
-    }
 
-    try {
-      if (this.out != null) {
-        this.out.close();
+      // --------------------------------------------------------
+      // STEP 2 — Allow RFCOMM + printer UART to drain fully.
+      // --------------------------------------------------------
+      if (POST_FINISH_DRAIN_MS > 0) {
+        try {
+          Thread.sleep(POST_FINISH_DRAIN_MS);
+        } catch (InterruptedException ignored) {
+        }
       }
-    } catch (Exception ignored) {
-    }
 
-    try {
-      if (this.socket != null) {
-        this.socket.close();
+      // --------------------------------------------------------
+      // STEP 3 — Final flush to ensure NO padding remains
+      // inside BufferedOutputStream.
+      // --------------------------------------------------------
+      try {
+        if (this.out != null) {
+          this.out.flush();
+        }
+      } catch (Exception ignored) {
       }
-    } catch (Exception ignored) {
+
+      // --------------------------------------------------------
+      // STEP 4 — Short delay after final flush.
+      // --------------------------------------------------------
+      try {
+        Thread.sleep(40);
+      } catch (InterruptedException ignored) {
+      }
+
+      // --------------------------------------------------------
+      // STEP 5 — Close OutputStream & Socket safely.
+      // --------------------------------------------------------
+      try {
+        if (this.out != null) {
+          this.out.close();
+        }
+      } catch (Exception ignored) {
+      }
+
+      try {
+        if (this.socket != null) {
+          this.socket.close();
+        }
+      } catch (Exception ignored) {
+      }
+
+    } finally {
+
+      this.out = null;
+      this.socket = null;
+
+      Log.i(TAG,
+          "TCP connection closed; safeCloseSocket took " + ((System.nanoTime() - start) / 1_000_000) + " ms");
     }
-
-    this.out = null;
-    this.socket = null;
-
-    Log.i(TAG, "TCP connection closed");
   }
 
   // CONNECTION STATE
