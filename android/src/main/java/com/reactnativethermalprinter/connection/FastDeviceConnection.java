@@ -194,7 +194,7 @@ public abstract class FastDeviceConnection {
       }
     }
 
-    // 🔥 CRITICAL: Allow OS -> SPP -> printer hardware buffer to drain
+    // CRITICAL: Allow OS -> SPP -> printer hardware buffer to drain
     try {
       Thread.sleep(50);
     } catch (InterruptedException ignored) {
