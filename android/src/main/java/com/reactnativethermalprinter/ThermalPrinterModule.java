@@ -33,6 +33,7 @@ import android.bluetooth.BluetoothDevice;
 import android.graphics.BitmapFactory;
 import android.text.TextUtils;
 import android.util.Base64;
+import android.util.Log;
 
 import com.dantsu.escposprinter.connection.bluetooth.BluetoothConnection;
 
@@ -227,11 +228,18 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
 
       if (originalBitmap.getWidth() == targetWidth) {
 
+        Log.i("ThermalPrinterModule.printBase64EncodedImage",
+          "Bitmap width matches target width; no need to scale; targetWidth: " + targetWidth);
+
         bitmapToPrint = originalBitmap;
 
       } else {
 
         final int targetHeight = Math.round(((float) originalBitmap.getHeight()) * ((float) targetWidth) / ((float) originalBitmap.getWidth()));
+
+        Log.i("ThermalPrinterModule.printBase64EncodedImage",
+          "Bitmap width does not match target width; scaling; bitmap dimensions: " + originalBitmap.getWidth() + " x "
+            + originalBitmap.getHeight() + " target dimensions: " + targetWidth + " x " + targetHeight);
 
         bitmapToPrint = Bitmap.createScaledBitmap(originalBitmap, targetWidth, targetHeight, false);
       }
