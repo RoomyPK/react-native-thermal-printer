@@ -219,12 +219,6 @@ public abstract class FastDeviceConnection {
     }
 
     try {
-      // 🔥 Extra pacing before close to avoid BT truncation
-      Thread.sleep(40);
-    } catch (InterruptedException ignored) {
-    }
-
-    try {
       closeDevice();
     } catch (IOException e) {
       Log.e(TAG, "Error closing device: " + e.getMessage());
