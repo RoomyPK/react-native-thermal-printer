@@ -134,18 +134,6 @@ public class FastBluetoothConnection extends FastDeviceConnection {
     }
   }
 
-  @Override
-  public void flush() {
-    if (this.out == null) {
-      return;
-    }
-    try {
-      this.out.flush();
-    } catch (Exception e) {
-      Log.e(TAG, "Flush error: " + e.getMessage(), e);
-    }
-  }
-
   // CLOSE BLUETOOTH SOCKET SAFELY
   @Override
   protected void closeDevice() throws IOException {

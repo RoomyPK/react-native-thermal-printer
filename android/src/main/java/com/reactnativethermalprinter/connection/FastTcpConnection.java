@@ -107,18 +107,6 @@ public class FastTcpConnection extends FastDeviceConnection {
     }
   }
 
-  @Override
-  public void flush() {
-    if (this.out == null) {
-      return;
-    }
-    try {
-      this.out.flush();
-    } catch (Exception e) {
-      Log.e(TAG, "Flush error: " + e.getMessage(), e);
-    }
-  }
-
   // CLOSE DEVICE
   @Override
   protected void closeDevice() throws IOException {

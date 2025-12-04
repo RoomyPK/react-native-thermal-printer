@@ -196,8 +196,6 @@ public abstract class FastDeviceConnection {
       }
     }
 
-    // flush();
-
     // 🔥 CRITICAL: Allow OS -> SPP -> printer hardware buffer to drain
     try {
       Thread.sleep(50);
